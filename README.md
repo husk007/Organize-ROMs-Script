@@ -2,8 +2,6 @@
 
 ## 🇵🇱 Wersja Polska
 
-# Skrypt do Organizacji ROMów
-
 Skrypt PowerShell do organizacji plików ROM w folderach specyficznych dla systemów na podstawie ich rozszerzeń, zawartości i nazw plików. Skrypt również loguje wszystkie przeniesienia plików, co pozwala na cofnięcie operacji w razie potrzeby.
 
 ## Funkcje
@@ -76,6 +74,13 @@ Aby cofnąć przeniesienia plików:
 - **Kopia Zapasowa**: Zaleca się wykonanie kopii zapasowej katalogu z ROMami przed uruchomieniem skryptu.
 - **Testowanie**: Przetestuj skrypt na niewielkim zestawie plików, aby upewnić się, że działa zgodnie z oczekiwaniami.
 - **Nieobsługiwane Format**: Niektóre formaty plików mogą nie być obsługiwane przez 7-Zip nawet z wtyczkami. Takie pliki zostaną przeniesione do folderu `Others`.
+
+## Licencja
+
+Ten projekt jest licencjonowany na podstawie licencji MIT - zobacz plik [LICENSE](LICENSE) w celu uzyskania szczegółów.
+
+##
+##
 
 ## 🇬🇧 English Version
 
@@ -155,8 +160,3 @@ To reverse the file movements:
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-
-
-## Licencja
-
-Ten projekt jest licencjonowany na podstawie licencji MIT - zobacz plik [LICENSE](LICENSE) w celu uzyskania szczegółów.
