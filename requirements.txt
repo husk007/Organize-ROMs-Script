@@ -1,0 +1,2 @@
+# Aplikacja korzysta wyłącznie z bibliotek standardowych Pythona.
+# Nie ma dodatkowych zależności do zainstalowania.
