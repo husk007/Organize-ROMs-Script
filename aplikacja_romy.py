@@ -6,20 +6,277 @@ import tkinter as tk
 from tkinter import filedialog, messagebox
 import webbrowser
 import xml.etree.ElementTree as ET
+import requests
+from unidecode import unidecode
 
 # Mappings of folder names based on the system
 folder_mappings = {
-    # Wklej tutaj pełny słownik folder_mappings z Twojego projektu
-    # Przykład:
-    'NES': {'Batocera': 'nes', 'Stock': 'NES'},
-    'SNES': {'Batocera': 'snes', 'Stock': 'SNES'},
-    # Dodaj pozostałe mapowania...
+    "Abuse SDL": {"Batocera": "abuse", "Stock": "abuse"},
+    "Acorn Computers": {"Batocera": "atom", "Stock": "atom"},
+    "Acorn Electron": {"Batocera": "electron", "Stock": "electron"},
+    "Adventure Vision": {"Batocera": "advision", "Stock": "advision"},
+    "Amiga 1200/AGA": {"Batocera": "amiga1200", "Stock": "amiga1200"},
+    "Amiga 500/OCS/ECS": {"Batocera": "amiga500", "Stock": "amiga500"},
+    "Amstrad CPC": {"Batocera": "amstradcpc", "Stock": "CPC"},
+    "Amstrad GX4000": {"Batocera": "gx4000", "Stock": "gx4000"},
+    "APF-MP1000/MP-1000/M-1000": {"Batocera": "apfm1000", "Stock": "apfm1000"},
+    "Apple II": {"Batocera": "apple2", "Stock": "apple2"},
+    "Apple IIGS": {"Batocera": "apple2gs", "Stock": "apple2gs"},
+    "Arcade": {"Batocera": "arcade", "Stock": "ARCADE"},
+    "Arcadia 2001/et al.": {"Batocera": "arcadia", "Stock": "arcadia"},
+    "Archimedes": {"Batocera": "archimedes", "Stock": "archimedes"},
+    "Arduboy": {"Batocera": "arduboy", "Stock": "arduboy"},
+    "Atari 2600/VCS": {"Batocera": "atari2600", "Stock": "ATARI"},
+    "Atari 5200": {"Batocera": "atari5200", "Stock": "FIFTYTWOHUNDRED"},
+    "Atari 7800": {"Batocera": "atari7800", "Stock": "SEVENTYEIGHTHUNDRED"},
+    "Atari 800": {"Batocera": "atari800", "Stock": "atari800"},
+    "Atari Jaguar": {"Batocera": "jaguar", "Stock": "jaguar"},
+    "Atari Lynx": {"Batocera": "lynx", "Stock": "LYNX"},
+    "Atari ST": {"Batocera": "atarist", "Stock": "atarist"},
+    "Atari XEGS": {"Batocera": "xegs", "Stock": "xegs"},
+    "Atomiswave": {"Batocera": "atomiswave", "Stock": "atomiswave"},
+    "Bally Astrocade/Arcade/ABA-1000": {"Batocera": "astrocde", "Stock": "astrocde"},
+    "Bandai Wonderswan": {"Batocera": "wonderswan", "Stock": "wonderswan"},
+    "Bandai Wonderswan Color": {"Batocera": "wonderswancolor", "Stock": "WS"},
+    "BBC Micro/Master/Archimedes": {"Batocera": "bbc", "Stock": "bbc"},
+    "Bermuda Syndrome": {"Batocera": "ports/bermuda", "Stock": "ports/bermuda"},
+    "Blake Stone": {"Batocera": "ports/bstone/aog", "Stock": "ports/bstone/aog"},
+    "Blake Stone Planet Strike": {"Batocera": "ports/bstone/ps", "Stock": "ports/bstone/ps"},
+    "Camputers Lynx": {"Batocera": "camplynx", "Stock": "camplynx"},
+    "Cannonball": {"Batocera": "cannonball", "Stock": "cannonball"},
+    "Capcom PlaySystem 1": {"Batocera": "cps1", "Stock": "CPS1"},
+    "Capcom PlaySystem 2": {"Batocera": "cps2", "Stock": "CPS2"},
+    "Capcom PlaySystem 3": {"Batocera": "cps3", "Stock": "CPS3"},
+    "Casio PV-1000/ぴーぶいせん/Pi Bui-Sen": {"Batocera": "pv1000", "Stock": "pv1000"},
+    "Cave Story": {"Batocera": "ports/CaveStory", "Stock": "ports/CaveStory"},
+    "C-Dogs (Cdogs-sdl)": {"Batocera": "ports/cdogs-sdl", "Stock": "ports/cdogs-sdl"},
+    "Celeste": {"Batocera": "ports/celeste", "Stock": "ports/celeste"},
+    "Coleco Adam": {"Batocera": "adam", "Stock": "adam"},
+    "ColecoVision": {"Batocera": "colecovision", "Stock": "COLECO"},
+    "Commander Keen": {"Batocera": "ports/cgenius", "Stock": "ports/cgenius"},
+    "Commodore 128 (C128)": {"Batocera": "c128", "Stock": "c128"},
+    "Commodore 64": {"Batocera": "c64", "Stock": "COMMODORE"},
+    "Commodore Amiga": {"Batocera": "amiga", "Stock": "AMIGA"},
+    "Commodore Amiga CD 32": {"Batocera": "amigacd32", "Stock": "amigacd32"},
+    "Commodore CDTV": {"Batocera": "amigacdtv", "Stock": "amigacdtv"},
+    "Commodore PET": {"Batocera": "pet", "Stock": "pet"},
+    "Commodore Plus/4": {"Batocera": "cplus4", "Stock": "cplus4"},
+    "Commodore Plus4": {"Batocera": "c16", "Stock": "c16"},
+    "Commodore VIC-20/VC-20": {"Batocera": "c20", "Stock": "VIC20"},
+    "CreatiVision/Educat 2002/Dick Smith Wizzard/FunVision": {"Batocera": "crvision", "Stock": "crvision"},
+    "Daphne": {"Batocera": "daphne", "Stock": "daphne"},
+    "DAPHNE (Laserdisc)": {"Batocera": "daphne", "Stock": "daphne"},
+    "DevilutionX": {"Batocera": "devilutionx", "Stock": "devilutionx"},
+    "Diablo": {"Batocera": "ports/diablo", "Stock": "ports/diablo"},
+    "Diablo Hellfire": {"Batocera": "ports/diablo", "Stock": "ports/diablo"},
+    "Dinothawr": {"Batocera": "ports/dinothawr", "Stock": "ports/dinothawr"},
+    "Doom": {"Batocera": "ports/doom", "Stock": "ports/doom"},
+    "Doom 2": {"Batocera": "ports/doom2", "Stock": "ports/doom2"},
+    "DOS x86": {"Batocera": "pc", "Stock": "pc"},
+    "DOSbox": {"Batocera": "dos", "Stock": "DOS"},
+    "Duke Nukem 2 (RigelEngine)": {"Batocera": "ports/rigelengine", "Stock": "ports/rigelengine"},
+    "Duke Nukem 3D": {"Batocera": "ports/eduke", "Stock": "ports/eduke"},
+    "DXX-Rebirth": {"Batocera": "dxx-rebirth", "Stock": "dxx-rebirth"},
+    "EasyRPG": {"Batocera": "easyrpg", "Stock": "easyrpg"},
+    "ECWolf": {"Batocera": "ecwolf", "Stock": "ecwolf"},
+    "EDuke32": {"Batocera": "eduke32", "Stock": "eduke32"},
+    "Fairchild Channel F": {"Batocera": "channelf", "Stock": "FAIRCHILD"},
+    "Fallout": {"Batocera": "ports/falloutce1", "Stock": "ports/falloutce1"},
+    "Fallout 2": {"Batocera": "ports/falloutce2", "Stock": "ports/falloutce2"},
+    "Final Burn Neo": {"Batocera": "fbneo", "Stock": "fbneo"},
+    "Flashback": {"Batocera": "ports/reminiscence", "Stock": "ports/reminiscence"},
+    "Flashpoint": {"Batocera": "flash", "Stock": "flash"},
+    "Flatpak": {"Batocera": "flatpak", "Stock": "flatpak"},
+    "FM Towns/Towns Marty": {"Batocera": "fmtowns", "Stock": "fmtowns"},
+    "Fujitsu FM-Towns": {"Batocera": "fmtownsux", "Stock": "fmtownsux"},
+    "Fujitsu Micro 7 (FM-7)": {"Batocera": "fm7", "Stock": "fm7"},
+    "Future Pinball": {"Batocera": "fpinball", "Stock": "fpinball"},
+    "Gamate/chāojí xiǎozi/Super Boy/chāojí shéntóng/Super Child Prodigy": {"Batocera": "gamate", "Stock": "gamate"},
+    "Game Boy 2 Players": {"Batocera": "gb2players", "Stock": "gb2players"},
+    "Game Boy Color 2 Players": {"Batocera": "gbc2players", "Stock": "gbc2players"},
+    "Game Gear": {"Batocera": "gamegear", "Stock": "GG"},
+    "Game Master/Systema 2000/Super Game/Game Tronic": {"Batocera": "gmaster", "Stock": "gmaster"},
+    "Game Pocket Computer": {"Batocera": "gamepock", "Stock": "gamepock"},
+    "Game.com": {"Batocera": "gamecom", "Stock": "gamecom"},
+    "Gamemaker Loader": {"Batocera": "gmloader", "Stock": "gmloader"},
+    "GP32": {"Batocera": "gp32", "Stock": "gp32"},
+    "GZDoom": {"Batocera": "gzdoom", "Stock": "gzdoom"},
+    "Half-Life": {"Batocera": "ports/half-life", "Stock": "ports/half-life"},
+    "Handheld LCD Games": {"Batocera": "lcdgames", "Stock": "lcdgames"},
+    "Heart of Darkness": {"Batocera": "ports/hode", "Stock": "ports/hode"},
+    "Heroes of Might and Magic II": {"Batocera": "ports/fheroes2", "Stock": "ports/fheroes2"},
+    "Hurrican": {"Batocera": "hurrican", "Stock": "hurrican"},
+    "Hydra Castle Labyrinth": {"Batocera": "hcl", "Stock": "hcl"},
+    "Ikemen Go": {"Batocera": "ikemen", "Stock": "ikemen"},
+    "Intellivision": {"Batocera": "intellivision", "Stock": "INTELLIVISION"},
+    "Ion Fury": {"Batocera": "fury", "Stock": "fury"},
+    "Java Games": {"Batocera": "freej2me", "Stock": "freej2me"},
+    "Jazz Jackrabbit (OpenJazz)": {"Batocera": "ports/openjazz", "Stock": "ports/openjazz"},
+    "Karaoke": {"Batocera": "karaoke", "Stock": "karaoke"},
+    "Laser 310": {"Batocera": "laser310", "Stock": "laser310"},
+    "Lowres NX": {"Batocera": "lowresnx", "Stock": "lowresnx"},
+    "Lutro": {"Batocera": "lutro", "Stock": "lutro"},
+    "M.U.G.E.N": {"Batocera": "mugen", "Stock": "mugen"},
+    "Macintosh 128K": {"Batocera": "macintosh", "Stock": "macintosh"},
+    "Magnavox Odyssey 2": {"Batocera": "odyssey", "Stock": "ODYSSEY"},
+    "Magnavox Odyssey²/Philips Videopac G7000/Philips Odyssey/Odyssey²": {"Batocera": "odyssey2", "Stock": "odyssey2"},
+    "MAME Video Game Music Player": {"Batocera": "vgmplay", "Stock": "vgmplay"},
+    "Mattel Intellivision": {"Batocera": "intellivision", "Stock": "INTELLIVISION"},
+    "Media Player": {"Batocera": "mplayer", "Stock": "mplayer"},
+    "Mega Duck/Cougar Boy": {"Batocera": "megaduck", "Stock": "MEGADUCK"},
+    "Microsoft MSX turboR": {"Batocera": "msxturbor", "Stock": "msxturbor"},
+    "Microsoft MSX1": {"Batocera": "msx1", "Stock": "msx1"},
+    "Microsoft MSX2": {"Batocera": "msx2", "Stock": "MSX"},
+    "Microsoft MSX2plus": {"Batocera": "msx2+", "Stock": "msx2+"},
+    "Microsoft Xbox": {"Batocera": "xbox", "Stock": "xbox"},
+    "Microsoft Xbox 360": {"Batocera": "xbox360", "Stock": "xbox360"},
+    "Milton Bradley Vectrex": {"Batocera": "vectrex", "Stock": "VECTREX"},
+    "Moonlight": {"Batocera": "moonlight", "Stock": "moonlight"},
+    "Mr. Boom": {"Batocera": "mrboom", "Stock": "mrboom"},
+    "MSX": {"Batocera": "msx", "Stock": "msx"},
+    "Multiple Arcade Machine Emulator": {"Batocera": "mame", "Stock": "mame"},
+    "Namco System 246": {"Batocera": "namco2x6", "Stock": "namco2x6"},
+    "Near's Super Nintendo MSU1": {"Batocera": "snesmsu1", "Stock": "snesmsu1"},
+    "NEC PC-8800": {"Batocera": "pc88", "Stock": "pc88"},
+    "NEC PC-9800/PC-98": {"Batocera": "pc98", "Stock": "pc98"},
+    "NEC PC-FX": {"Batocera": "pcfx", "Stock": "pcfx"},
+    "NEC Super Grafx": {"Batocera": "sgfx", "Stock": "SGFX"},
+    "NEC TurboGrafx 16": {"Batocera": "tg16", "Stock": "PCE"},
+    "NEC TurboGrafx 16-CD": {"Batocera": "tg16cd", "Stock": "PCECD"},
+    "Neo Geo CD": {"Batocera": "neogeocd", "Stock": "NEOCD"},
+    "Nintendo 3DS": {"Batocera": "3ds", "Stock": "3ds"},
+    "Nintendo 64": {"Batocera": "n64", "Stock": "n64"},
+    "Nintendo 64DD": {"Batocera": "n64dd", "Stock": "n64dd"},
+    "Nintendo DS": {"Batocera": "nds", "Stock": "NDS"},
+    "Nintendo Entertainment System Hacks": {"Batocera": "nesh", "Stock": "nesh"},
+    "Nintendo Entertainment System/Famicom": {"Batocera": "nes", "Stock": "FC"},
+    "Nintendo Famicom": {"Batocera": "famicom", "Stock": "famicom"},
+    "Nintendo Family Computer Disk System/Famicom": {"Batocera": "fds", "Stock": "FDS"},
+    "Nintendo Game and Watch": {"Batocera": "gameandwatch", "Stock": "GW"},
+    "Nintendo Game Boy": {"Batocera": "gb", "Stock": "GB"},
+    "Nintendo Game Boy 2 Players": {"Batocera": "gb2players", "Stock": "gb2players"},
+    "Nintendo Game Boy Advance": {"Batocera": "gba", "Stock": "GBA"},
+    "Nintendo Game Boy Advance hacks": {"Batocera": "gbah", "Stock": "gbah"},
+    "Nintendo Game Boy Color": {"Batocera": "gbc", "Stock": "GBC"},
+    "Nintendo Game Boy Color 2 Players": {"Batocera": "gbc2players", "Stock": "gbc2players"},
+    "Nintendo Game Boy Color Hacks": {"Batocera": "gbch", "Stock": "gbch"},
+    "Nintendo Game Boy Hacks": {"Batocera": "gbh", "Stock": "gbh"},
+    "Nintendo GameCube": {"Batocera": "gamecube", "Stock": "gamecube"},
+    "Nintendo Super Famicom": {"Batocera": "sfc", "Stock": "sfc"},
+    "Nintendo Super Nintendo Hacks": {"Batocera": "snesh", "Stock": "snesh"},
+    "Nintendo Virtual Boy": {"Batocera": "virtualboy", "Stock": "VB"},
+    "Nintendo Wii": {"Batocera": "wii", "Stock": "wii"},
+    "Nintendo Wii U": {"Batocera": "wiiu", "Stock": "wiiu"},
+    "Open Beats of Rage": {"Batocera": "openbor", "Stock": "openbor"},
+    "Openjazz": {"Batocera": "openjazz", "Stock": "openjazz"},
+    "Othello Multivision": {"Batocera": "multivision", "Stock": "multivision"},
+    "Out Run (Cannonball)": {"Batocera": "ports/cannonball", "Stock": "ports/cannonball"},
+    "Panasonic 3DO Interactive Multiplayer": {"Batocera": "3do", "Stock": "3do"},
+    "PC Engine CD-ROM²/PC Engine Duo R/PC Engine Duo RX/TurboGrafx-CD/TurboDuo": {"Batocera": "pcenginecd", "Stock": "pcenginecd"},
+    "PC Engine SuperGrafx/SuperGrafx/PCエンジンスーパーグラフィックス/Pī Shī Enjin SūpāGurafikkusu/PC Engine 2": {"Batocera": "supergrafx", "Stock": "supergrafx"},
+    "PC Engine/TurboGrafx-16": {"Batocera": "pcengine", "Stock": "pcengine"},
+    "Philips Compact Disc Interactive/CD-i": {"Batocera": "cdi", "Stock": "cdi"},
+    "Philips VideoPac": {"Batocera": "videopac", "Stock": "VIDEOPAC"},
+    "Philips Videopac+ G7400/G7420": {"Batocera": "videopacplus", "Stock": "videopacplus"},
+    "PICO-8 fantasy console": {"Batocera": "pico8", "Stock": "PICO"},
+    "PlayStation Vita": {"Batocera": "psvita", "Stock": "psvita"},
+    "Plug 'n' Play/Handheld TV Games": {"Batocera": "plugnplay", "Stock": "plugnplay"},
+    "Pokémon Mini": {"Batocera": "pokemini", "Stock": "POKE"},
+    "PolyGame Master": {"Batocera": "pgm2", "Stock": "pgm2"},
+    "Portmaster": {"Batocera": "ports/", "Stock": "ports/"},
+    "PrBoom": {"Batocera": "prboom", "Stock": "prboom"},
+    "pygame": {"Batocera": "pygame", "Stock": "pygame"},
+    "Pyxel fantasy console": {"Batocera": "pyxel", "Stock": "pyxel"},
+    "Quake": {"Batocera": "ports/quake/id1", "Stock": "ports/quake/id1"},
+    "Raze": {"Batocera": "raze", "Stock": "raze"},
+    "RetroArch": {"Batocera": "RetroArch", "Stock": "RetroArch"},
+    "Rick Dangerous": {"Batocera": "ports/xrick", "Stock": "ports/xrick"},
+    "SAM Coupé": {"Batocera": "samcoupe", "Stock": "samcoupe"},
+    "Sammy Atomiswave": {"Batocera": "atomiswave", "Stock": "atomiswave"},
+    "Satellaview": {"Batocera": "satellaview", "Stock": "SATELLAVIEW"},
+    "ScummVM": {"Batocera": "scummvm", "Stock": "SCUMMVM"},
+    "SDLPoP": {"Batocera": "sdlpop", "Stock": "sdlpop"},
+    "Sega 32X": {"Batocera": "sega32x", "Stock": "THIRTYTWOX"},
+    "Sega CD/Mega CD": {"Batocera": "segacd", "Stock": "SEGACD"},
+    "Sega Dreamcast": {"Batocera": "dreamcast", "Stock": "dreamcast"},
+    "Sega Game Gear Hacks": {"Batocera": "gamegearh", "Stock": "gamegearh"},
+    "Sega Genesis": {"Batocera": "genesis", "Stock": "MD"},
+    "Sega Genesis Hacks": {"Batocera": "genh", "Stock": "genh"},
+    "Sega Genesis/Mega Drive": {"Batocera": "megadrive", "Stock": "megadrive"},
+    "Sega Master System/Mark III": {"Batocera": "mastersystem", "Stock": "MS"},
+    "Sega Mega Drive Japan": {"Batocera": "megadrive-japan", "Stock": "megadrive-japan"},
+    "Sega Mega Drive MSU": {"Batocera": "megadrivemsu", "Stock": "megadrivemsu"},
+    "Sega Model 1": {"Batocera": "mame/model1", "Stock": "mame/model1"},
+    "Sega Model 2": {"Batocera": "mame/model2", "Stock": "mame/model2"},
+    "Sega Model 3": {"Batocera": "mame/model3", "Stock": "mame/model3"},
+    "Sega Naomi": {"Batocera": "naomi", "Stock": "naomi"},
+    "Sega NAOMI 2": {"Batocera": "naomi2", "Stock": "naomi2"},
+    "Sega Pico": {"Batocera": "pico", "Stock": "pico"},
+    "Sega Saturn": {"Batocera": "saturn", "Stock": "saturn"},
+    "Sega SC-3000": {"Batocera": "sc-3000", "Stock": "sc-3000"},
+    "Sega SG-1000/SG-1000 II/SC-3000": {"Batocera": "sg1000", "Stock": "SEGASGONE"},
+    "Sharp X1": {"Batocera": "x1", "Stock": "x1"},
+    "Sharp X68000": {"Batocera": "x68000", "Stock": "x68000"},
+    "Shovel Knight": {"Batocera": "ports/shovelknight", "Stock": "ports/shovelknight"},
+    "Sinclair ZX Spectrum": {"Batocera": "zxspectrum", "Stock": "ZXS"},
+    "Sinclair ZX81": {"Batocera": "zx81", "Stock": "zx81"},
+    "SINGE": {"Batocera": "singe", "Stock": "singe"},
+    "SNK Neo-Geo MVS": {"Batocera": "neogeo", "Stock": "NEOGEO"},
+    "SNK Neo-Geo Pocket": {"Batocera": "ngp", "Stock": "ngp"},
+    "SNK Neo-Geo Pocket Color": {"Batocera": "ngpc", "Stock": "NGP"},
+    "Solarus": {"Batocera": "solarus", "Stock": "solarus"},
+    "Sonic 1": {"Batocera": "ports/sonic1", "Stock": "ports/sonic1"},
+    "Sonic 2": {"Batocera": "ports/sonic2", "Stock": "ports/sonic2"},
+    "Sonic CD": {"Batocera": "ports/soniccd", "Stock": "ports/soniccd"},
+    "Sonic Mania": {"Batocera": "ports/sonicmania", "Stock": "ports/sonicmania"},
+    "Sony PlayStation": {"Batocera": "psx", "Stock": "PS"},
+    "Sony PlayStation 2": {"Batocera": "ps2", "Stock": "ps2"},
+    "Sony PlayStation 3": {"Batocera": "ps3", "Stock": "ps3"},
+    "Sony PlayStation Portable": {"Batocera": "psp", "Stock": "psp"},
+    "Sony PlayStation Portable Minis": {"Batocera": "pspminis", "Stock": "pspminis"},
+    "Spectravideo": {"Batocera": "spectravideo", "Stock": "spectravideo"},
+    "Star Engine/Sonic Retro Engine": {"Batocera": "sonicretro", "Stock": "sonicretro"},
+    "Steam": {"Batocera": "steam", "Stock": "steam"},
+    "Streets of Rage Remake (Sorr)": {"Batocera": "ports/sorr", "Stock": "ports/sorr"},
+    "SuFami Turbo": {"Batocera": "sufami", "Stock": "SUFAMI"},
+    "Super A'Can": {"Batocera": "supracan", "Stock": "supracan"},
+    "Super Cassette Vision/スーパーカセットビジョン/Suupaa Kasetto Bijon": {"Batocera": "scv", "Stock": "scv"},
+    "Super Game Boy": {"Batocera": "sgb", "Stock": "SGB"},
+    "Super Mario War": {"Batocera": "superbroswar", "Stock": "superbroswar"},
+    "Super NES CD-ROM/SNES MSU-1": {"Batocera": "snes_msu-1", "Stock": "snes_msu-1"},
+    "Super Nintendo Entertainment System": {"Batocera": "snes", "Stock": "SFC"},
+    "SuperTux": {"Batocera": "ports/supertux", "Stock": "ports/supertux"},
+    "SuperTuxKart": {"Batocera": "ports/supertuxkart", "Stock": "ports/supertuxkart"},
+    "Tandy Video Information System": {"Batocera": "vis", "Stock": "vis"},
+    "Thomson MO/TO Series Computer": {"Batocera": "thomson", "Stock": "thomson"},
+    "TI-99/4 (TI-99/4A)": {"Batocera": "ti99", "Stock": "ti99"},
+    "TIC-80 fantasy console": {"Batocera": "tic80", "Stock": "TIC"},
+    "TMNTSR": {"Batocera": "ports/tmntsr", "Stock": "ports/tmntsr"},
+    "Tomy Tutor/Pyūta/Grandstand Tutor": {"Batocera": "tutor", "Stock": "tutor"},
+    "Triforce": {"Batocera": "triforce", "Stock": "triforce"},
+    "TRS-80/Tandy Color Computer": {"Batocera": "coco", "Stock": "coco"},
+    "Turrican (Hurrican)": {"Batocera": "ports/hurrican/data", "Stock": "ports/hurrican/data"},
+    "Tyrian (OpenTyrian)": {"Batocera": "ports/opentyrian", "Stock": "ports/opentyrian"},
+    "TyrQuake": {"Batocera": "tyrquake", "Stock": "tyrquake"},
+    "Uzebox Open-Source console": {"Batocera": "uzebox", "Stock": "uzebox"},
+    "V.Smile (TV LEARNING SYSTEM)": {"Batocera": "vsmile", "Stock": "vsmile"},
+    "Video Computer 4000": {"Batocera": "vc4000", "Stock": "vc4000"},
+    "Visual Pinball": {"Batocera": "vpinball", "Stock": "vpinball"},
+    "Voxatron fantasy console": {"Batocera": "voxatron", "Stock": "voxatron"},
+    "VVVVVV": {"Batocera": "ports/VVVVVV", "Stock": "ports/VVVVVV"},
+    "WASM4 fantasy console": {"Batocera": "wasm4", "Stock": "wasm4"},
+    "Watara Supervision": {"Batocera": "supervision", "Stock": "SUPERVISION"},
+    "WINE": {"Batocera": "windows", "Stock": "windows"},
+    "Wolfenstein 3D": {"Batocera": "ports/ecwolf/games", "Stock": "ports/ecwolf/games"},
+    "WonderSwan": {"Batocera": "wswan", "Stock": "wswan"},
+    "WonderSwan Color": {"Batocera": "wswanc", "Stock": "wswanc"},
+    "Xash3D FWGS": {"Batocera": "xash3d_fwgs", "Stock": "xash3d_fwgs"},
 }
 
 class Application(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("Aplikacja do zarządzania ROMami - Wersja 1.1.0")
+        self.title("Aplikacja do zarządzania ROMami - Wersja 1.2.0")
         self.geometry("800x750")
         self.seven_zip_path = None
 
@@ -61,11 +318,11 @@ class Application(tk.Tk):
 
     def show_help(self):
         help_text = (
-            "Aplikacja do zarządzania ROMami - Wersja 1.1.0\n\n"
+            "Aplikacja do zarządzania ROMami - Wersja 1.2.0\n\n"
             "Funkcje:\n"
             "- Zmiana nazw folderów w zależności od wybranego systemu.\n"
             "- Segregowanie plików ROM do odpowiednich folderów na podstawie rozszerzeń plików i zawartości.\n"
-            "- Generowanie pliku gamelist.xml dla gier.\n"
+            "- Generowanie pliku gamelist.xml dla gier z pobieraniem metadanych.\n"
             "- Cofanie zmian na podstawie pliku log.\n\n"
             "Instrukcja obsługi:\n"
             "1. Wybierz system za pomocą odpowiednich przycisków radiowych.\n"
@@ -431,7 +688,11 @@ class Application(tk.Tk):
                     if thumbnail_path:
                         ET.SubElement(game, "thumbnail").text = thumbnail_path
 
-                    # Dodatkowe pola mogą być dodane tutaj
+                    # Pobieranie metadanych z TheGamesDB
+                    metadata = self.fetch_game_metadata(game_name)
+                    if metadata:
+                        for key, value in metadata.items():
+                            ET.SubElement(game, key).text = value
 
                     self.log(f"Dodano grę: {game_name}")
 
@@ -450,6 +711,40 @@ class Application(tk.Tk):
                     if os.path.isfile(image_file_path):
                         relative_image_path = os.path.relpath(image_file_path, roms_path)
                         return "./" + relative_image_path.replace("\\", "/")
+        return None
+
+    def fetch_game_metadata(self, game_name):
+        # Funkcja do pobierania metadanych z TheGamesDB
+        base_url = "https://api.thegamesdb.net/v1.1/Games/ByGameName"
+        params = {
+            'apikey': '',  # Opcjonalnie możesz umieścić tutaj swój klucz API, jeśli posiadasz
+            'name': unidecode(game_name),
+            'fields': 'players,genre,overview,release_date,publishers,developers'
+        }
+        try:
+            response = requests.get(base_url, params=params)
+            if response.status_code == 200:
+                data = response.json()
+                if 'data' in data and 'games' in data['data']:
+                    game_info = data['data']['games'][0]  # Bierzemy pierwszą znalezioną grę
+                    metadata = {}
+                    if 'overview' in game_info:
+                        ET.SubElement(game, "desc").text = game_info['overview']
+                    if 'release_date' in game_info:
+                        ET.SubElement(game, "releasedate").text = game_info['release_date']
+                    if 'developers' in game_info and game_info['developers']:
+                        ET.SubElement(game, "developer").text = ', '.join(game_info['developers'])
+                    if 'publishers' in game_info and game_info['publishers']:
+                        ET.SubElement(game, "publisher").text = ', '.join(game_info['publishers'])
+                    if 'genres' in game_info and game_info['genres']:
+                        ET.SubElement(game, "genre").text = ', '.join(game_info['genres'])
+                    if 'players' in game_info:
+                        ET.SubElement(game, "players").text = str(game_info['players'])
+                    return metadata
+            else:
+                self.log(f"Nie udało się pobrać danych dla gry: {game_name}")
+        except Exception as e:
+            self.log(f"Błąd podczas pobierania danych dla gry '{game_name}': {e}")
         return None
 
 if __name__ == "__main__":
