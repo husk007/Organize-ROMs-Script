@@ -1,4 +1,5 @@
 import os
+import re
 import sys
 import shutil
 import subprocess
@@ -273,12 +274,92 @@ folder_mappings = {
     "Xash3D FWGS": {"Batocera": "xash3d_fwgs", "Stock": "xash3d_fwgs"},
 }
 
+# Skróty systemów używane przy rozpoznawaniu plików -> klucze w folder_mappings.
+# Dzięki temu nazwa folderu docelowego zależy od wybranego zestawu (Batocera / Stock).
+SHORT_TO_KEY = {
+    "NES": "Nintendo Entertainment System/Famicom",
+    "SNES": "Super Nintendo Entertainment System",
+    "GB": "Nintendo Game Boy",
+    "GBC": "Nintendo Game Boy Color",
+    "GBA": "Nintendo Game Boy Advance",
+    "NDS": "Nintendo DS",
+    "3DS": "Nintendo 3DS",
+    "N64": "Nintendo 64",
+    "64DD": "Nintendo 64DD",
+    "FDS": "Nintendo Family Computer Disk System/Famicom",
+    "GAMECUBE": "Nintendo GameCube",
+    "WII": "Nintendo Wii",
+    "WIIU": "Nintendo Wii U",
+    "VIRTUALBOY": "Nintendo Virtual Boy",
+    "NEOGEOPOCKET": "SNK Neo-Geo Pocket",
+    "NEOGEOPOCKETCOLOR": "SNK Neo-Geo Pocket Color",
+    "PCENGINE": "PC Engine/TurboGrafx-16",
+    "WONDERSWAN": "WonderSwan",
+    "WONDERSWAN_COLOR": "WonderSwan Color",
+    "AMIGA": "Commodore Amiga",
+    "CPC": "Amstrad CPC",
+    "ZXSPECTRUM": "Sinclair ZX Spectrum",
+    "MEGADRIVE": "Sega Genesis/Mega Drive",
+    "GAMEGEAR": "Game Gear",
+    "PS1": "Sony PlayStation",
+    "PS2": "Sony PlayStation 2",
+    "PS3": "Sony PlayStation 3",
+    "PSP": "Sony PlayStation Portable",
+    "PSVITA": "PlayStation Vita",
+    "DREAMCAST": "Sega Dreamcast",
+    "XBOX": "Microsoft Xbox",
+    "XBOX360": "Microsoft Xbox 360",
+}
+
+
+def resolve_folder_name(rom_system, system):
+    """Zwraca nazwę folderu docelowego dla skrótu systemu (np. "NES") i wybranego zestawu."""
+    key = SHORT_TO_KEY.get(rom_system, rom_system)
+    mapping = folder_mappings.get(key)
+    if mapping:
+        return mapping.get(system, key)
+    return rom_system
+
+
+def unique_path(path):
+    """Zwraca ścieżkę, która jeszcze nie istnieje (dodaje " (1)", " (2)"... przed rozszerzeniem)."""
+    if not os.path.exists(path):
+        return path
+    base, ext = os.path.splitext(path)
+    counter = 1
+    while os.path.exists(f"{base} ({counter}){ext}"):
+        counter += 1
+    return f"{base} ({counter}){ext}"
+
+
+def safe_move(src, dst):
+    """Przenosi plik lub folder bez nadpisywania istniejącego celu.
+
+    Tworzy brakujące foldery nadrzędne i zwraca faktyczną ścieżkę docelowej lokalizacji.
+    """
+    final_dst = unique_path(dst)
+    parent = os.path.dirname(final_dst)
+    if parent and not os.path.isdir(parent):
+        os.makedirs(parent)
+    shutil.move(src, final_dst)
+    return final_dst
+
+
+def format_release_date(value):
+    """Zamienia datę RRRR-MM-DD na format EmulationStation (RRRRMMDDT000000)."""
+    match = re.fullmatch(r"(\d{4})-(\d{2})-(\d{2})", str(value).strip())
+    if match:
+        return f"{match.group(1)}{match.group(2)}{match.group(3)}T000000"
+    return str(value)
+
+
 class Application(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("Aplikacja do zarządzania ROMami - Wersja 1.2.0")
+        self.title("Aplikacja do zarządzania ROMami - Wersja 1.2.1")
         self.geometry("800x750")
         self.seven_zip_path = None
+        self._metadata_warning_shown = False
 
         # Pobranie ścieżki bazowej
         if hasattr(sys, '_MEIPASS'):
@@ -318,7 +399,7 @@ class Application(tk.Tk):
 
     def show_help(self):
         help_text = (
-            "Aplikacja do zarządzania ROMami - Wersja 1.2.0\n\n"
+            "Aplikacja do zarządzania ROMami - Wersja 1.2.1\n\n"
             "Funkcje:\n"
             "- Zmiana nazw folderów w zależności od wybranego systemu.\n"
             "- Segregowanie plików ROM do odpowiednich folderów na podstawie rozszerzeń plików i zawartości.\n"
@@ -401,9 +482,16 @@ class Application(tk.Tk):
         self.log_text.see(tk.END)
 
     def check_seven_zip(self):
+        """Sprawdza dostępność 7-Zip.
+
+        Zwraca True (7-Zip dostępny), False (kontynuuj bez 7-Zip) albo None (użytkownik anulował).
+        """
         default_path = r"C:\Program Files\7-Zip\7z.exe"
+        path_in_env = shutil.which("7z")
         if os.path.isfile(default_path):
             self.seven_zip_path = default_path
+        elif path_in_env:
+            self.seven_zip_path = path_in_env
         else:
             messagebox.showwarning("7-Zip", "Nie znaleziono 7-Zip w domyślnej lokalizacji.")
             path = filedialog.askopenfilename(title="Wskaż plik 7z.exe", filetypes=[("7z.exe", "7z.exe")])
@@ -411,22 +499,22 @@ class Application(tk.Tk):
                 self.seven_zip_path = path
             else:
                 proceed = messagebox.askyesno("Kontynuować bez 7-Zip?", "Nie znaleziono 7-Zip. Czy chcesz kontynuować bez 7-Zip?\nPliki obrazów mogą zostać przeniesione do folderu 'Inne'.")
-                if not proceed:
-                    return False
+                # Bez 7-Zip nie ma ścieżki do pluginu - nie sprawdzamy go dalej
+                return False if proceed else None
         # Sprawdzenie obecności pluginu Iso7z
         formats_folder = os.path.join(os.path.dirname(self.seven_zip_path), "Formats")
         if not os.path.isdir(formats_folder):
             messagebox.showwarning("Plugin Iso7z", f"Nie znaleziono folderu 'Formats' w {formats_folder}.\nZainstaluj plugin Iso7z z https://www.tc4shell.com/en/7zip/iso7z/")
             proceed = messagebox.askyesno("Kontynuować bez pluginu?", "Czy chcesz kontynuować bez pluginu Iso7z?\nPliki obrazów mogą zostać przeniesione do folderu 'Inne'.")
             if not proceed:
-                return False
+                return None
         else:
             dll_found = any(fname in os.listdir(formats_folder) for fname in ["Iso7z.64.dll", "Iso7z.32.dll"])
             if not dll_found:
                 messagebox.showwarning("Plugin Iso7z", f"Nie znaleziono pliku 'Iso7z.64.dll' lub 'Iso7z.32.dll' w {formats_folder}.\nZainstaluj plugin Iso7z z https://www.tc4shell.com/en/7zip/iso7z/")
                 proceed = messagebox.askyesno("Kontynuować bez pluginu?", "Czy chcesz kontynuować bez pluginu Iso7z?\nPliki obrazów mogą zostać przeniesione do folderu 'Inne'.")
                 if not proceed:
-                    return False
+                    return None
         return True
 
     def change_folder_names(self):
@@ -442,6 +530,8 @@ class Application(tk.Tk):
             messagebox.showerror("Błąd", "Podane ścieżki nie są prawidłowymi folderami.")
             return
 
+        moved_folders_log = []
+
         for folder_name in os.listdir(source):
             source_folder = os.path.join(source, folder_name)
             if os.path.isdir(source_folder):
@@ -452,10 +542,36 @@ class Application(tk.Tk):
                     new_name = folder_name  # Jeśli brak w mappingu, pozostaje bez zmian
 
                 dest_folder = os.path.join(dest, new_name)
-                shutil.move(source_folder, dest_folder)
-                self.log(f"Przeniesiono {source_folder} do {dest_folder}")
 
-        messagebox.showinfo("Sukces", "Nazwy folderów zostały zmienione.")
+                # Nic do zrobienia, gdy nazwa się nie zmienia lub folder jest folderem docelowym
+                if os.path.abspath(source_folder) == os.path.abspath(dest_folder) \
+                        or os.path.abspath(source_folder) == os.path.abspath(dest):
+                    continue
+
+                if os.path.isdir(dest_folder):
+                    # Folder docelowy już istnieje - scalamy zawartość zamiast zagnieżdżać folder
+                    for entry in os.listdir(source_folder):
+                        source_entry = os.path.join(source_folder, entry)
+                        final_entry = safe_move(source_entry, os.path.join(dest_folder, entry))
+                        self.log(f"Przeniesiono {source_entry} do {final_entry}")
+                        moved_folders_log.append(f"{source_entry} -> {final_entry}")
+                    if not os.listdir(source_folder):
+                        os.rmdir(source_folder)
+                else:
+                    final_folder = safe_move(source_folder, dest_folder)
+                    self.log(f"Przeniesiono {source_folder} do {final_folder}")
+                    moved_folders_log.append(f"{source_folder} -> {final_folder}")
+
+        message = "Nazwy folderów zostały zmienione."
+        if moved_folders_log:
+            # Log w tym samym formacie co przy segregowaniu ROMów - można go użyć w "Cofnij zmiany"
+            log_file_path = os.path.join(dest, "folder_renames.log")
+            with open(log_file_path, "w", encoding="utf-8") as log_file:
+                for log_entry in moved_folders_log:
+                    log_file.write(log_entry + "\n")
+            message += f"\nLog zapisano w {log_file_path}"
+
+        messagebox.showinfo("Sukces", message)
 
     def organize_roms(self):
         source = self.source_entry.get()
@@ -471,10 +587,13 @@ class Application(tk.Tk):
             return
 
         # Sprawdzenie 7-Zip
-        seven_zip_available = self.check_seven_zip()
+        seven_zip_status = self.check_seven_zip()
+        if seven_zip_status is None:
+            return  # użytkownik anulował operację - nie przenosimy żadnych plików
+        seven_zip_available = seven_zip_status
 
         # Listy rozszerzeń
-        image_extensions = [".iso", ".img", ".bin", ".mdf", ".chd", ".nrg", ".cdi", ".gdi", ".ecm", ".cso", ".gcz", ".rvz", ".wbfs", ".nsp", ".xci", ".dsk", ".pbp", ".elf", ".dol", ".isz", ".rar", ".7z", ".zip", ".gzip", ".tar", ".tar.gz", ".tar.bz2", ".001", ".part1", ".r01"]
+        image_extensions = [".iso", ".img", ".bin", ".mdf", ".chd", ".nrg", ".cdi", ".gdi", ".ecm", ".cso", ".gcz", ".rvz", ".wbfs", ".nsp", ".xci", ".dsk", ".pbp", ".elf", ".dol", ".isz", ".rar", ".7z", ".zip", ".gzip", ".tar", ".gz", ".bz2", ".001", ".r01"]
         rom_extensions = [".nes", ".nez", ".unf", ".unif", ".smc", ".sfc", ".md", ".smd", ".gen", ".gg", ".z64", ".v64", ".n64", ".gb", ".gbc", ".gba", ".srl", ".gcm", ".gcz", ".xiso", ".nds", ".dsi", ".ids", ".cia", ".3ds", ".ngp", ".ngc", ".pce", ".vb", ".ws", ".wsc", ".adf", ".adz", ".dms", ".ipf", ".rp9", ".cdc", ".tzx", ".cas", ".fds", ".ecm", ".wav", ".tap", ".ndd", ".xbe", ".xex"]
         related_extensions = [".cue", ".ccd", ".mds", ".sbi", ".sub", ".m3u"]
 
@@ -492,7 +611,7 @@ class Application(tk.Tk):
             ".z64": "N64",
             ".v64": "N64",
             ".ngp": "NEOGEOPOCKET",
-            ".ngc": "GAMECUBE",
+            ".ngc": "NEOGEOPOCKETCOLOR",
             ".pce": "PCENGINE",
             ".vb": "VIRTUALBOY",
             ".ws": "WONDERSWAN",
@@ -512,7 +631,20 @@ class Application(tk.Tk):
             ".ndd": "64DD",
             ".xbe": "XBOX",
             ".xex": "XBOX360",
-            # Dodaj pozostałe mapowania...
+            ".nez": "NES",
+            ".unf": "NES",
+            ".unif": "NES",
+            ".md": "MEGADRIVE",
+            ".smd": "MEGADRIVE",
+            ".gen": "MEGADRIVE",
+            ".gg": "GAMEGEAR",
+            ".srl": "NDS",
+            ".gcm": "GAMECUBE",
+            ".gcz": "GAMECUBE",
+            ".xiso": "XBOX",
+            ".cia": "3DS",
+            ".3ds": "3DS",
+            # Rozszerzenia bez wpisu trafiają do folderu "Inne"
         }
 
         moved_files_log = []
@@ -522,7 +654,6 @@ class Application(tk.Tk):
             if os.path.isfile(source_file):
                 file_extension = os.path.splitext(file_name)[1].lower()
                 file_name_lower = file_name.lower()
-                file_size = os.path.getsize(source_file)
 
                 # Określanie systemu na podstawie rozszerzenia
                 if file_extension in rom_extensions:
@@ -580,20 +711,13 @@ class Application(tk.Tk):
                     if not rom_system:
                         rom_system = "Inne"
 
-                # Pobranie nazwy folderu docelowego na podstawie systemu
-                mapping = folder_mappings.get(rom_system)
-                if mapping:
-                    folder_name = mapping.get(system, rom_system)
-                else:
-                    folder_name = rom_system
+                # Pobranie nazwy folderu docelowego na podstawie systemu (Batocera / Stock)
+                folder_name = resolve_folder_name(rom_system, system)
 
                 dest_folder = os.path.join(dest, folder_name)
 
-                if not os.path.exists(dest_folder):
-                    os.makedirs(dest_folder)
-
-                dest_file = os.path.join(dest_folder, file_name)
-                shutil.move(source_file, dest_file)
+                # Istniejący plik o tej samej nazwie nie jest nadpisywany (dodawany jest " (1)", " (2)"...)
+                dest_file = safe_move(source_file, os.path.join(dest_folder, file_name))
                 self.log(f"Przeniesiono {source_file} do {dest_file}")
                 moved_files_log.append(f"{source_file} -> {dest_file}")
 
@@ -602,8 +726,7 @@ class Application(tk.Tk):
                 for ext in related_extensions:
                     related_file = os.path.join(source, file_base_name + ext)
                     if os.path.isfile(related_file):
-                        dest_related_file = os.path.join(dest_folder, os.path.basename(related_file))
-                        shutil.move(related_file, dest_related_file)
+                        dest_related_file = safe_move(related_file, os.path.join(dest_folder, os.path.basename(related_file)))
                         self.log(f"Przeniesiono powiązany plik {related_file} do {dest_related_file}")
                         moved_files_log.append(f"{related_file} -> {dest_related_file}")
 
@@ -628,24 +751,21 @@ class Application(tk.Tk):
         with open(log_file_path, "r", encoding="utf-8") as log_file:
             lines = log_file.readlines()
 
-        for line in lines:
+        # Cofamy w odwrotnej kolejności niż wykonywano operacje (ważne dla folderów)
+        for line in reversed(lines):
             line = line.strip()
-            if "->" in line:
-                source, dest = line.split("->")
+            if " -> " in line:
+                source, dest = line.split(" -> ", 1)
                 source = source.strip()
                 dest = dest.strip()
                 # Zamiana źródła z celem
                 original_source = dest
                 original_dest = source
 
-                # Sprawdzenie, czy plik istnieje
-                if os.path.isfile(original_source):
-                    dest_dir = os.path.dirname(original_dest)
-                    if not os.path.exists(dest_dir):
-                        os.makedirs(dest_dir)
-
-                    shutil.move(original_source, original_dest)
-                    self.log(f"Cofnięto {original_source} do {original_dest}")
+                # Sprawdzenie, czy plik lub folder istnieje
+                if os.path.exists(original_source):
+                    final_dest = safe_move(original_source, original_dest)
+                    self.log(f"Cofnięto {original_source} do {final_dest}")
                 else:
                     self.log(f"Plik {original_source} nie istnieje, pomijam.")
 
@@ -662,6 +782,7 @@ class Application(tk.Tk):
             return
 
         gamelist_path = os.path.join(roms_path, "gamelist.xml")
+        self._metadata_warning_shown = False
 
         root = ET.Element("gameList")
 
@@ -695,6 +816,7 @@ class Application(tk.Tk):
                             ET.SubElement(game, key).text = value
 
                     self.log(f"Dodano grę: {game_name}")
+                    self.update_idletasks()  # odświeżenie okna podczas pobierania metadanych
 
         tree = ET.ElementTree(root)
         tree.write(gamelist_path, encoding='utf-8', xml_declaration=True)
@@ -714,36 +836,49 @@ class Application(tk.Tk):
         return None
 
     def fetch_game_metadata(self, game_name):
-        # Funkcja do pobierania metadanych z TheGamesDB
+        # Funkcja do pobierania metadanych z TheGamesDB.
+        # Klucz API należy ustawić w zmiennej środowiskowej THEGAMESDB_API_KEY.
+        api_key = os.environ.get("THEGAMESDB_API_KEY", "").strip()
+        if not api_key:
+            if not self._metadata_warning_shown:
+                self.log("Brak klucza API TheGamesDB (zmienna środowiskowa THEGAMESDB_API_KEY) - pomijam pobieranie metadanych.")
+                self._metadata_warning_shown = True
+            return None
+
         base_url = "https://api.thegamesdb.net/v1.1/Games/ByGameName"
         params = {
-            'apikey': '',  # Opcjonalnie możesz umieścić tutaj swój klucz API, jeśli posiadasz
+            'apikey': api_key,
             'name': unidecode(game_name),
             'fields': 'players,genre,overview,release_date,publishers,developers'
         }
         try:
-            response = requests.get(base_url, params=params)
-            if response.status_code == 200:
-                data = response.json()
-                if 'data' in data and 'games' in data['data']:
-                    game_info = data['data']['games'][0]  # Bierzemy pierwszą znalezioną grę
-                    metadata = {}
-                    if 'overview' in game_info:
-                        ET.SubElement(game, "desc").text = game_info['overview']
-                    if 'release_date' in game_info:
-                        ET.SubElement(game, "releasedate").text = game_info['release_date']
-                    if 'developers' in game_info and game_info['developers']:
-                        ET.SubElement(game, "developer").text = ', '.join(game_info['developers'])
-                    if 'publishers' in game_info and game_info['publishers']:
-                        ET.SubElement(game, "publisher").text = ', '.join(game_info['publishers'])
-                    if 'genres' in game_info and game_info['genres']:
-                        ET.SubElement(game, "genre").text = ', '.join(game_info['genres'])
-                    if 'players' in game_info:
-                        ET.SubElement(game, "players").text = str(game_info['players'])
-                    return metadata
-            else:
-                self.log(f"Nie udało się pobrać danych dla gry: {game_name}")
-        except Exception as e:
+            response = requests.get(base_url, params=params, timeout=10)
+            if response.status_code != 200:
+                self.log(f"Nie udało się pobrać danych dla gry: {game_name} (HTTP {response.status_code})")
+                return None
+
+            data = response.json()
+            games = (data.get('data') or {}).get('games') or []
+            if not games:
+                return None
+
+            game_info = games[0]  # Bierzemy pierwszą znalezioną grę
+            metadata = {}
+            if game_info.get('overview'):
+                metadata['desc'] = str(game_info['overview'])
+            if game_info.get('release_date'):
+                metadata['releasedate'] = format_release_date(game_info['release_date'])
+            # API może zwracać identyfikatory zamiast nazw - zapisujemy tylko wartości tekstowe
+            for xml_key, field in (('developer', 'developers'), ('publisher', 'publishers'), ('genre', 'genres')):
+                value = game_info.get(field)
+                if isinstance(value, list):
+                    names = [item for item in value if isinstance(item, str)]
+                    if names:
+                        metadata[xml_key] = ', '.join(names)
+            if game_info.get('players') not in (None, ''):
+                metadata['players'] = str(game_info['players'])
+            return metadata or None
+        except (requests.RequestException, ValueError) as e:
             self.log(f"Błąd podczas pobierania danych dla gry '{game_name}': {e}")
         return None
 
