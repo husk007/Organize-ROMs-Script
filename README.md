@@ -1,6 +1,6 @@
 # Organize-ROMs-Script
 
-**Wersja:** 1.2.0
+**Wersja:** 1.2.1
 
 ## Spis treści
 
@@ -81,7 +81,8 @@ Aplikacja służy do zarządzania plikami ROM oraz folderami dla emulatorów. Po
 5. **Generowanie gamelist.xml**:
    - Upewnij się, że w folderach `imgs` lub `images` znajdują się grafiki gier z dopiskiem `-image` lub `-thumb`.
    - Przykład nazwy pliku graficznego: `SuperMario-image.png`, `SuperMario-thumb.jpg`.
-   - **Uwaga**: Dla pełnej funkcjonalności pobierania metadanych możesz potrzebować klucza API do TheGamesDB.
+   - **Metadane z TheGamesDB** wymagają klucza API. Ustaw go w zmiennej środowiskowej `THEGAMESDB_API_KEY` przed uruchomieniem aplikacji (np. w PowerShell: `$env:THEGAMESDB_API_KEY="twój_klucz"`). Bez klucza `gamelist.xml` zostanie wygenerowany bez opisów.
+   - **Uwaga**: aplikacja działa na Windows (domyślna ścieżka 7-Zip: `C:\Program Files\7-Zip\7z.exe`, można też wskazać `7z.exe` ręcznie).
 
 ## Licencja
 
@@ -91,7 +92,7 @@ Projekt jest licencjonowany na warunkach licencji MIT. Zobacz plik [LICENSE](LIC
 
 ## English Version
 
-**Version:** 1.2.0
+**Version:** 1.2.1
 
 ### Table of Contents
 
@@ -171,7 +172,8 @@ The application is designed to manage ROM files and folders for emulators. It al
 5. **Generating gamelist.xml**:
    - Ensure that images of games are placed in `imgs` or `images` folders with suffixes `-image` or `-thumb`.
    - Example image file names: `SuperMario-image.png`, `SuperMario-thumb.jpg`.
-   - **Note**: For full metadata scraping functionality, you may need an API key for TheGamesDB.
+   - **TheGamesDB metadata** requires an API key. Set it in the `THEGAMESDB_API_KEY` environment variable before starting the app (e.g. PowerShell: `$env:THEGAMESDB_API_KEY="your_key"`). Without a key, `gamelist.xml` is generated without descriptions.
+   - **Note**: the app targets Windows (default 7-Zip path: `C:\Program Files\7-Zip\7z.exe`; you can also point to `7z.exe` manually).
 
 ### License
 
